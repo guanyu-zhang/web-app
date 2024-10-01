@@ -1,0 +1,210 @@
+<html>
+<head>
+    <title>chatroom</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="http://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
+</head>
+
+<style>
+    .msgDiv {
+        background: aquamarine;
+        padding: 10px;
+        border-radius: 5px;
+        word-wrap: break-word;
+        max-width: 200px;
+    }
+</style>
+
+<body>
+<center>
+    <div class="containter" style="padding: 60px">
+        <div class="row">
+            <div class="col-md-3 col-sm-3">
+                <h3 id="iam"></h3>
+                <button id="logout">logout</button>
+            </div>
+            <div class="col-md-9 col-sm-9">
+                <table class="table" id="chat">
+                    <thead>
+                    <tr>
+                        <th scope="col">time</th>
+                        <th scope="col">sender</th>
+                        <th scope="col" id="chat-to"></th>
+                        <th scope="col">likes</th>
+                        <th scope="col"></th>
+                        <th scope="col"></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-9 col-sm-9">
+                <input id="text" type="text">
+            </div>
+            <div class="col-md-3 col-sm-3">
+                <button type="button" id="send-msg">Send Message</button>
+            </div>
+        </div>
+    </div>
+</center>
+
+<script>
+$(document).ready(function(){
+    let iam;
+    let chat_to;
+    let channelName = window.location.pathname.split("/")[3];
+    $.ajax({
+        type: "POST",
+        url: "/auth/view_current_messages",
+        dataType : "json",
+        contentType: "application/json; charset=utf-8",
+        data : JSON.stringify({"groupId": channelName}),
+        success: function(result){
+            console.log(result)
+            let status = result['status']
+            iam = result['user']['Username']
+            $('#iam').text(iam)
+            let data = result['data']
+            let tbody = $('#chat tbody');
+            tbody.empty()
+            $.each(data, function(index, item) {
+                if(item['sender_name'] !== iam) {
+                    chat_to = item['sender_name']
+                    $('#chat-to').text("with " + chat_to)
+                }
+                if(item['is_active'] === false) {
+                    return true
+                }
+                let newRow = $('<tr>');
+                newRow.append($('<td>').text(item['created_at'].substring(0, 19)))
+                newRow.append($('<td>').text(item['sender_name']))
+                let td1 = $('<td>')
+                let msgDiv = $('<div class="msgDiv">').text(item['content'])
+                td1.append(msgDiv)
+                newRow.append(td1)
+                let td2 = $('<td>').text(item['up_votes'])
+                newRow.append(td2)
+                let td3 = $('<td>')
+                let btn1 = $('<button type="button">Upvote</button>')
+                btn1.click(function () {
+                    fetch('http://' + window.location.host + '/auth/upvote_message', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({"messageId": item['id'].toString()})
+                    })
+                        .then(response => {
+                            const statusCode = response.status;
+                            return response.json().then(result => ({ statusCode, result }));
+                        })
+                        .then(({ statusCode, result }) => {
+                            if (statusCode >= 200 && statusCode < 300) {
+                                console.log('Success:', result);
+                                alert('upvote Success');
+                                window.location.reload()
+                            } else {
+                                console.error('Error:', result);
+                                alert('upvote Fail, please retry [fail reason: ' + result.message + ']');
+                                window.location.reload()
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Fetch error:', error);
+                            alert('upvote Fail, system error');
+                        });
+                })
+                td3.append(btn1)
+                newRow.append(td3)
+                let td4 = $('<td>')
+                let btn2 = $('<button type="button">Downvote</button>')
+                btn2.click(function () {
+                    fetch('http://' + window.location.host + '/auth/downvote_message', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({"messageId": item['id'].toString()})
+                    })
+                        .then(response => {
+                            const statusCode = response.status;
+                            return response.json().then(result => ({ statusCode, result }));
+                        })
+                        .then(({ statusCode, result }) => {
+                            if (statusCode >= 200 && statusCode < 300) {
+                                console.log('Success:', result);
+                                alert('Downvote Success');
+                                window.location.reload()
+                            } else {
+                                console.error('Error:', result);
+                                alert('Downvote Fail, please retry [fail reason: ' + result.message + ']');
+                                window.location.reload()
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Fetch error:', error);
+                            alert('Downvote Fail, system error');
+                        });
+                })
+                td4.append(btn2)
+                newRow.append(td4)
+                tbody.append(newRow)
+            });
+        },
+        error: function(request, status, error){
+            console.log("Error");
+            console.log(request)
+            console.log(status)
+            console.log(error)
+        }
+    });
+
+    let url = "ws://" + window.location.host + window.location.pathname + "/ws";
+    let ws = new WebSocket(url);
+
+    ws.onmessage = function (msg) {
+        console.log('msg is' + JSON.stringify(msg))
+        window.location.reload()
+    };
+
+
+    $('#send-msg').click(function () {
+        let textMsg = $('#text').val();
+        let obj = {"senderName": iam, "content": textMsg, "groupId": channelName}
+        ws.send(JSON.stringify(obj));
+        $('#text').val('');
+        window.location.reload()
+    })
+
+    $('#logout').click(function () {
+        $.ajax({
+            type: "POST",
+            url: "/auth/logout",
+            dataType : "json",
+            contentType: "application/json; charset=utf-8",
+            data : JSON.stringify({}),
+            success: function(result){
+                console.log(result)
+                let status = result['status']
+                window.location = "/"
+            },
+            error: function(request, status, error){
+                console.log("Error");
+                console.log(request)
+                console.log(status)
+                console.log(error)
+            }
+        });
+    })
+})
+
+</script>
+</body>
+</html>

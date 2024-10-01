@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>chats</title>
+  <script src="http://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.min.js"></script>
+  <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
+
+
+  <style>
+    .title{
+      background: lightblue;
+      vertical-align: center;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .weight{
+      font-weight: bold;
+    }
+
+    .edge{
+      border: 1px solid lightgray;
+    }
+
+    .hy:hover{
+      background: lightyellow;
+    }
+
+    .hy{
+      background: white;
+      cursor: move;
+    }
+  </style>
+</head>
+<body>
+<div class="containter" style="padding: 60px">
+  <div class="row">
+    <table class="table" id="my_chat_rooms">
+      <thead>
+      <tr>
+        <th scope="col">my chat rooms</th>
+        <th scope="col"></th>
+      </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+  <div class="row">
+    <button type="button" id="search">search people</button>
+  </div>
+  <div class="row">
+    <table class="table" id="people" style="display: none;">
+      <thead>
+      <tr>
+        <th scope="col">Username</th>
+        <th scope="col"></th>
+      </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+  <div class="row">
+    <button id="logout">logout</button>
+  </div>
+</div>
+</body>
+<script>
+$(document).ready(function(){
+    $.ajax({
+      type: "POST",
+      url: "/auth/get_my_chat_groups",
+      dataType : "json",
+      contentType: "application/json; charset=utf-8",
+      data : JSON.stringify({}),
+      success: function(result){
+        let status = result['status']
+        let data = result['data']
+        let tbody = $('#my_chat_rooms tbody');
+        tbody.empty()
+        let cnt = 0
+        for (var key in data) {
+          if (data.hasOwnProperty(key)) {
+            let newRow = $('<tr>');
+            newRow.append($('<td>').text(data[key]['userName']).attr('data-groupId', key).attr('data-userId', data[key]['userId']));
+            let btn = $("<button type=\"button\">Enter</button>")
+            btn.attr('id', 'btn-' + cnt.toString())
+            btn.click(function() {
+              window.location = '/auth/channel/' + key
+            })
+            let td = $('<td>')
+            td.append(btn)
+            newRow.append(td);
+            tbody.append(newRow);
+          }
+        }
+      },
+      error: function(request, status, error){
+        console.log("Error");
+        console.log(request)
+        console.log(status)
+        console.log(error)
+      }
+    });
+
+    $('#search').click(function () {
+      $('#people').show()
+      $.ajax({
+        type: "GET",
+        url: "/auth/unknown_people",
+        dataType : "json",
+        contentType: "application/json; charset=utf-8",
+        success: function(result){
+          let status = result['status']
+          let data = result['data']
+          let tbody = $('#people tbody');
+          tbody.empty()
+          $.each(data, function(index, item) {
+              console.log(item)
+              let newRow = $('<tr>');
+              newRow.append($('<td>').text(item));
+              let btn = $("<button type=\"button\">Chat</button>");
+              let td = $('<td>');
+              td.append(btn);
+              newRow.append(td)
+              btn.click(function () {
+                $.ajax({
+                  type: "POST",
+                  url: "/auth/create_chat_room_for_two",
+                  dataType : "json",
+                  contentType: "application/json; charset=utf-8",
+                  data : JSON.stringify({"receiver":item}),
+                  success: function(result){
+                    let status = result['status']
+                    let gid = result['groupId']
+                    window.location = '/auth/channel/' + gid.toString()
+                  },
+                  error: function(request, status, error){
+                    console.log("Error");
+                    console.log(request)
+                    console.log(status)
+                    console.log(error)
+                  }
+                });
+              })
+              tbody.append(newRow);
+          });
+        },
+        error: function(request, status, error){
+          console.log("Error");
+          console.log(request)
+          console.log(status)
+          console.log(error)
+        }
+      });
+    })
+
+  $('#logout').click(function () {
+    $.ajax({
+      type: "POST",
+      url: "/auth/logout",
+      dataType : "json",
+      contentType: "application/json; charset=utf-8",
+      data : JSON.stringify({}),
+      success: function(result){
+        console.log(result)
+        let status = result['status']
+        window.location = "/"
+      },
+      error: function(request, status, error){
+        console.log("Error");
+        console.log(request)
+        console.log(status)
+        console.log(error)
+      }
+    });
+  })
+  }
+)
+</script>
+</html>
